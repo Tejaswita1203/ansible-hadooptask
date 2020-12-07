@@ -1,0 +1,106 @@
+- hosts: datanode
+  vars_prompt:
+          - name: dir_name
+            private: no
+            prompt: "Enter the path and directory name for Datanode"
+            
+
+          - name: ip
+            private: no
+            prompt: "Enter the ip of master node"
+            
+
+
+  tasks:
+          - name: Downloading jdk software
+            get_url:
+                  url: "https://hadoopanisble.s3.ap-south-1.amazonaws.com/jdk-8u171-linux-x64.rpm"
+                  dest: /root
+            become: true
+
+          - name: Downloading hadoop software
+            get_url:
+                 url: "https://archive.apache.org/dist/hadoop/common/hadoop-1.2.1/hadoop-1.2.1-1.x86_64.rpm"
+                 dest: /root
+            become: true
+
+
+          - name: Installing hadoop software
+            command: rpm -i hadoop-1.2.1-1.x86_64.rpm --force
+            register: hadoop
+            become: true
+
+          - debug:
+                 var: hadoop
+
+          - name: Installing jdk software
+            yum:
+                   name: "/root/jdk-8u171-linux-x64.rpm"
+                   state: present
+                   disable_gpg_check: yes
+            register: java
+            become: true
+
+          - debug: 
+                  var: java.results
+
+
+          - name: Creating datanode directory
+            file:
+                    
+                   path: "{{ dir_name }}"
+                   state: directory
+            become: true
+
+
+          - name: Updating hdfs-site.xml file
+            template:
+                    dest: /etc/hadoop/hdfs-site.xml
+                    src: hdfs-site.xml
+            become: true
+
+
+          - name: Updating core-site.xml file
+            blockinfile:
+                    path: /etc/hadoop/core-site.xml
+                    insertafter: "<configuration>"
+                    block:
+                            <property>
+                            <name>fs.default.name</name>
+                            <value>hdfs://{{ip}}:9001</value>
+                            </property>
+            become: true
+
+
+          - name: starting datanode services
+            command: hadoop-daemon.sh start datanode
+            register: data_service
+            become: true
+
+            
+          - debug: 
+                  var: data_service.stdout
+
+            
+          - name: checking datanode services
+            command: jps
+            register: data_jps
+            become: true
+
+
+          - debug:
+                  var: data_jps.stdout_lines
+
+          - debug:
+                  msg: "Hadoop Datanode configured"
+
+          - name: hadoop cluster report
+            command: "hadoop dfsadmin -report"
+            register: report
+            become: true
+
+
+          - debug:
+                  var: report.stdout_lines 
+           
+                  

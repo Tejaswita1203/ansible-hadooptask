@@ -1,0 +1,87 @@
+- hosts: client
+  vars_prompt:
+
+          - name: ip
+            private: no
+            prompt: "Enter the ip of master node"
+
+          - name: file_name
+            private: no
+            prompt: "Enter the file name to upload"
+ 
+
+
+  tasks:
+          - name: Downloading jdk software
+            get_url:
+                  url: "https://hadoopanisble.s3.ap-south-1.amazonaws.com/jdk-8u171-linux-x64.rpm"
+                  dest: /root
+            become: true
+
+
+          - name: Downloading hadoop software
+            get_url:
+                 url: "https://archive.apache.org/dist/hadoop/common/hadoop-1.2.1/hadoop-1.2.1-1.x86_64.rpm"
+                 dest: /root
+            become: true
+
+
+          - name: Installing hadoop software
+            command: rpm -i hadoop-1.2.1-1.x86_64.rpm --force
+            register: hadoop
+            become: true
+
+          - debug:
+                 var: hadoop
+
+          - name: Installing jdk software
+            yum:
+                   name: "/root/jdk-8u171-linux-x64.rpm"
+                   state: present
+                   disable_gpg_check: yes
+            register: java
+            become: true
+
+          - debug: 
+                  var: java.results
+
+          - name: Updating core-site.xml file
+            blockinfile:
+                    path: /etc/hadoop/core-site.xml
+                    insertafter: "<configuration>"
+                    block:
+                            <property>
+                            <name>fs.default.name</name>
+                            <value>hdfs://{{ip}}:9001</value>
+                            </property>
+            become: true
+
+ 
+          - name: checking client configuration
+            command: "hadoop dfsadmin -report"
+            register: report
+            become: true
+          - debug:
+                  var: report.stdout_lines
+
+          - debug:
+                  msg: "Client node configured"
+
+
+          - name: Copying file to client
+            copy:
+                  dest: "/root/{{ file_name }}"
+                  src: "hadoop_file.txt"
+            become: true
+
+          
+          - name: Putting file to hadoop cluster through client
+            command: hadoop fs -put /root/{{ file_name }} /
+            register: client_file
+            become: true
+
+          
+          - debug:
+                  var: client_file
+           
+
